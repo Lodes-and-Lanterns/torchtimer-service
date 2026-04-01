@@ -1,0 +1,12 @@
+name = "torchtimer-service"
+main = "worker.js"
+compatibility_date = "2026-03-17"
+
+[[kv_namespaces]]
+binding = "TORCHTIMER_SESSIONS"
+id = "1214f6600a7b4701a96a9ffe99472878"
+preview_id = "812e2e795c354d07a01afd09cc45c1d9"
+
+# Only set for production; wrangler dev leaves ENVIRONMENT unset, which the worker treats as dev (open CORS):
+[env.production.vars]
+ENVIRONMENT = "production"
