@@ -7,6 +7,10 @@ binding = "TORCHTIMER_SESSIONS"
 id = "1214f6600a7b4701a96a9ffe99472878"
 preview_id = "812e2e795c354d07a01afd09cc45c1d9"
 
+[[env.production.kv_namespaces]]
+binding = "TORCHTIMER_SESSIONS"
+id = "1214f6600a7b4701a96a9ffe99472878"
+
 # Only set for production; wrangler dev leaves ENVIRONMENT unset, which the worker treats as dev (open CORS):
 [env.production.vars]
 ENVIRONMENT = "production"
