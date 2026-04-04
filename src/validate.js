@@ -3,7 +3,7 @@
    ============================================================================= */
 
 export const VALID_STATES = new Set(["running", "paused", "dead", "unlit"]);
-export const MAX_TORCHES = 4;
+export const MAX_TORCHES = 8;
 export const MAX_DURATION_MS = 24 * 60 * 60 * 1000; // 24-hour ceiling
 
 const VALID_TOP_KEYS = new Set(["v", "ts", "torches", "timerVisible"]);
