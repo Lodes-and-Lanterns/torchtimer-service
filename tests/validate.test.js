@@ -1,10 +1,16 @@
 import { assertEquals } from "@std/assert";
 import {
   MAX_DURATION_MS,
+  MAX_ROUNDS,
   MAX_TORCHES,
   validatePayload,
 } from "../src/validate.js";
-import { validPayload, validPayloadJson } from "./fixtures.js";
+import {
+  validPayload,
+  validPayloadJson,
+  validRoundPayload,
+  validRoundPayloadJson,
+} from "./fixtures.js";
 
 // VALID PAYLOADS
 /////////////////
@@ -403,6 +409,162 @@ Deno.test("validatePayload: rejects torch with id exceeding max length", () => {
   assertEquals(validatePayload(JSON.stringify(payload)), null);
 });
 
+// ROUND MODE: valid payloads
+/////////////////////////////
+
+Deno.test("validatePayload: accepts a valid running round-mode torch", () => {
+  const result = validatePayload(validRoundPayloadJson());
+
+  assertEquals(result?.torches[0].mode, "rounds");
+  assertEquals(result?.torches[0].roundsTotal, 10);
+  assertEquals(result?.torches[0].roundsRemaining, 7);
+});
+
+Deno.test("validatePayload: accepts a round-mode torch with roundsRemaining of zero (dead)", () => {
+  const result = validatePayload(validRoundPayloadJson({
+    torch: { state: "dead", roundsRemaining: 0 },
+  }));
+
+  assertEquals(result?.torches[0].state, "dead");
+  assertEquals(result?.torches[0].roundsRemaining, 0);
+});
+
+Deno.test("validatePayload: accepts a round-mode torch with roundsRemaining equal to roundsTotal", () => {
+  const result = validatePayload(validRoundPayloadJson({
+    torch: { state: "unlit", roundsRemaining: 10 },
+  }));
+
+  assertEquals(result?.torches[0].roundsRemaining, 10);
+});
+
+Deno.test("validatePayload: accepts round-mode torch with roundsTotal at MAX_ROUNDS", () => {
+  const result = validatePayload(validRoundPayloadJson({
+    torch: { roundsTotal: MAX_ROUNDS, roundsRemaining: MAX_ROUNDS },
+  }));
+
+  assertEquals(result?.torches[0].roundsTotal, MAX_ROUNDS);
+});
+
+Deno.test("validatePayload: accepts round-mode torch with roundsTotal of 1", () => {
+  const result = validatePayload(validRoundPayloadJson({
+    torch: { roundsTotal: 1, roundsRemaining: 1, state: "unlit" },
+  }));
+
+  assertEquals(result?.torches[0].roundsTotal, 1);
+});
+
+Deno.test("validatePayload: accepts running round-mode torch with roundsRemaining of 1", () => {
+  const result = validatePayload(validRoundPayloadJson({
+    torch: { roundsRemaining: 1 },
+  }));
+
+  assertEquals(result?.torches[0].state, "running");
+  assertEquals(result?.torches[0].roundsRemaining, 1);
+});
+
+// ROUND MODE: invalid payloads
+///////////////////////////////
+
+Deno.test("validatePayload: rejects round-mode torch with deathAt set", () => {
+  const payload = validRoundPayload({ torch: { deathAt: 1700003600000 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with remaining set", () => {
+  const payload = validRoundPayload({ torch: { remaining: 1800000 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with state paused", () => {
+  const payload = validRoundPayload({ torch: { state: "paused" } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with roundsTotal of zero", () => {
+  const payload = validRoundPayload({
+    torch: { roundsTotal: 0, roundsRemaining: 0 },
+  });
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with roundsTotal exceeding MAX_ROUNDS", () => {
+  const payload = validRoundPayload({
+    torch: { roundsTotal: MAX_ROUNDS + 1, roundsRemaining: 0 },
+  });
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with roundsRemaining exceeding roundsTotal", () => {
+  const payload = validRoundPayload({
+    torch: { roundsTotal: 5, roundsRemaining: 6 },
+  });
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with negative roundsRemaining", () => {
+  const payload = validRoundPayload({ torch: { roundsRemaining: -1 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with non-integer roundsTotal", () => {
+  const payload = validRoundPayload({ torch: { roundsTotal: 5.5 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch with non-integer roundsRemaining", () => {
+  const payload = validRoundPayload({ torch: { roundsRemaining: 3.5 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects dead round-mode torch with non-zero roundsRemaining", () => {
+  const payload = validRoundPayload({
+    torch: { state: "dead", roundsRemaining: 3 },
+  });
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects running round-mode torch with roundsRemaining of zero", () => {
+  const payload = validRoundPayload({ torch: { roundsRemaining: 0 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch missing roundsTotal", () => {
+  const payload = validRoundPayload();
+  const { roundsTotal: _, ...torchWithout } = payload.torches[0];
+
+  payload.torches[0] = torchWithout;
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects round-mode torch missing roundsRemaining", () => {
+  const payload = validRoundPayload();
+  const { roundsRemaining: _, ...torchWithout } = payload.torches[0];
+
+  payload.torches[0] = torchWithout;
+
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects invalid mode string", () => {
+  const payload = validPayload({ torch: { mode: "manual" } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects time-mode torch with roundsTotal present", () => {
+  const payload = validPayload({ torch: { roundsTotal: 10 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: rejects time-mode torch with roundsRemaining present", () => {
+  const payload = validPayload({ torch: { roundsRemaining: 5 } });
+  assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
 // MULTI-TORCH: one invalid torch invalidates the whole payload
 ///////////////////////////////////////////////////////////////
 
@@ -422,4 +584,35 @@ Deno.test("validatePayload: rejects payload where second torch is invalid", () =
   };
 
   assertEquals(validatePayload(JSON.stringify(payload)), null);
+});
+
+Deno.test("validatePayload: accepts payload with mixed time-mode and round-mode torches", () => {
+  const payload = {
+    v: 1,
+    ts: 1700000000000,
+    torches: [
+      {
+        duration: 3600000,
+        state: "running",
+        deathAt: 1700003600000,
+        remaining: null,
+      },
+      {
+        duration: 3600000,
+        state: "running",
+        deathAt: null,
+        remaining: null,
+        mode: "rounds",
+        roundsTotal: 10,
+        roundsRemaining: 7,
+      },
+    ],
+  };
+
+  const result = validatePayload(JSON.stringify(payload));
+
+  assertEquals(result?.torches[0].state, "running");
+  assertEquals(result?.torches[0].mode, undefined);
+  assertEquals(result?.torches[1].mode, "rounds");
+  assertEquals(result?.torches[1].roundsRemaining, 7);
 });

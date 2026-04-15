@@ -5,6 +5,7 @@
 export const VALID_STATES = new Set(["running", "paused", "dead", "unlit"]);
 export const MAX_TORCHES = 8;
 export const MAX_DURATION_MS = 24 * 60 * 60 * 1000; // 24-hour ceiling
+export const MAX_ROUNDS = 99;
 
 const VALID_TOP_KEYS = new Set(["v", "ts", "torches", "timerVisible"]);
 
@@ -14,6 +15,9 @@ const VALID_TORCH_KEYS = new Set([
   "state",
   "deathAt",
   "remaining",
+  "mode",
+  "roundsTotal",
+  "roundsRemaining",
 ]);
 
 /**
@@ -64,15 +68,40 @@ export function validatePayload(body) {
       return null;
     }
 
-    // Enforce which fields must be set vs. null per state:
-    if (t.state === "running") {
-      if (!Number.isInteger(t.deathAt) || t.deathAt <= 0) return null;
-      if (t.remaining !== null) return null;
-    } else if (t.state === "paused") {
-      if (!Number.isInteger(t.remaining) || t.remaining < 0) return null;
-      if (t.deathAt !== null) return null;
-    } else { // Dead or unlit
-      if (t.deathAt !== null || t.remaining !== null) return null;
+    if ("mode" in t && t.mode !== "time" && t.mode !== "rounds") return null;
+
+    const isRounds = t.mode === "rounds";
+
+    if (isRounds) {
+      if (
+        (!("roundsTotal" in t) || !("roundsRemaining" in t)) ||
+        (
+          !Number.isInteger(t.roundsTotal) ||
+          t.roundsTotal < 1 ||
+          t.roundsTotal > MAX_ROUNDS
+        ) ||
+        (
+          !Number.isInteger(t.roundsRemaining) ||
+          t.roundsRemaining < 0 ||
+          t.roundsRemaining > t.roundsTotal
+        ) ||
+        (t.deathAt !== null || t.remaining !== null) ||
+        t.state === "paused" ||
+        (t.state === "dead" && t.roundsRemaining !== 0) ||
+        (t.state === "running" && t.roundsRemaining === 0)
+      ) return null;
+    } else { // Time Mode
+      if ("roundsTotal" in t || "roundsRemaining" in t) return null;
+
+      if (t.state === "running") {
+        if (!Number.isInteger(t.deathAt) || t.deathAt <= 0) return null;
+        if (t.remaining !== null) return null;
+      } else if (t.state === "paused") {
+        if (!Number.isInteger(t.remaining) || t.remaining < 0) return null;
+        if (t.deathAt !== null) return null;
+      } else {
+        if (t.deathAt !== null || t.remaining !== null) return null;
+      }
     }
   }
 

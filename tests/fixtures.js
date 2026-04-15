@@ -49,3 +49,28 @@ export function validPayload(overrides = {}) {
 export function validPayloadJson(overrides = {}) {
   return JSON.stringify(validPayload(overrides));
 }
+
+/** Returns a minimal valid payload for a single running round-mode torch. */
+export function validRoundPayload(overrides = {}) {
+  return {
+    v: 1,
+    ts: 1700000000000,
+    torches: [
+      {
+        duration: 3600000,
+        state: "running",
+        deathAt: null,
+        remaining: null,
+        mode: "rounds",
+        roundsTotal: 10,
+        roundsRemaining: 7,
+        ...overrides.torch,
+      },
+    ],
+    ...overrides.top,
+  };
+}
+
+export function validRoundPayloadJson(overrides = {}) {
+  return JSON.stringify(validRoundPayload(overrides));
+}
